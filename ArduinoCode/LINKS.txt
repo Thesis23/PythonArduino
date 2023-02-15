@@ -1,0 +1,3 @@
+https://randomnerdtutorials.com/esp32-cam-video-streaming-web-server-camera-home-assistant/
+https://raw.githubusercontent.com/RuiSantosdotme/ESP32-CAM-Arduino-IDE/master/ESP32-CAM-Video-Streaming/ESP32-CAM-Video-Streaming.ino
+https://randomnerdtutorials.com/esp32-cam-video-streaming-face-recognition-arduino-ide/
