@@ -10,20 +10,25 @@
 #include "driver/sdmmc_defs.h"
 #include "sdmmc_cmd.h"
 #include "esp_vfs_fat.h"
+#include "esp_timer.h"
+#include "img_converters.h"
 #include "FS.h"                // SD Card ESP32
+#include "fb_gfx.h"
 #include "SD_MMC.h"            // SD Card ESP32
 #include "soc/soc.h"           // Disable brownour problems
 #include "soc/rtc_cntl_reg.h"  // Disable brownour problems
 #include "driver/rtc_io.h"
 #include <EEPROM.h>            // read and write from flash memory
+// SERVER
+#include "esp_http_server.h"
 
 // define the number of bytes you want to access
-#define EEPROM_SIZE 1
+// #define EEPROM_SIZE 1
 
 // Edit ssid, password, capture_interval:
 const char* ssid = "Homers_House";
 const char* password = "Veigarlover420";
-int capture_interval = 5000; // milliseconds between captures
+int capture_interval = 1000; // milliseconds between captures
 //
 
 long current_millis;
@@ -34,6 +39,10 @@ char strftime_buf[64];
 bool internet_connected = false;
 struct tm timeinfo;
 time_t now;
+
+#define PART_BOUNDARY "123456789000000000000987654321"
+
+#define CAMERA_MODEL_AI_THINKER
 
 // CAMERA_MODEL_AI_THINKER
 #define PWDN_GPIO_NUM     32
@@ -54,7 +63,96 @@ time_t now;
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
+#define FLASH_GPIO_NUM 4
+
+// #define FLASH_BRIGHTNESS 64
+
+// const int freq = 5000;
+// const int ledChannel = LEDC_CHANNEL_6;
+
 int pictureNumber = 0;
+
+static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
+static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
+static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
+
+httpd_handle_t stream_httpd = NULL;
+
+static esp_err_t stream_handler(httpd_req_t *req){
+  camera_fb_t * fb = NULL;
+  esp_err_t res = ESP_OK;
+  size_t _jpg_buf_len = 0;
+  uint8_t * _jpg_buf = NULL;
+  char * part_buf[64];
+
+  res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
+  if(res != ESP_OK){
+    return res;
+  }
+
+  while(true){
+    fb = esp_camera_fb_get();
+    if (!fb) {
+      Serial.println("Camera capture failed");
+      res = ESP_FAIL;
+    } else {
+      if(fb->width > 400){
+        if(fb->format != PIXFORMAT_JPEG){
+          bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
+          esp_camera_fb_return(fb);
+          fb = NULL;
+          if(!jpeg_converted){
+            Serial.println("JPEG compression failed");
+            res = ESP_FAIL;
+          }
+        } else {
+          _jpg_buf_len = fb->len;
+          _jpg_buf = fb->buf;
+        }
+      }
+    }
+    if(res == ESP_OK){
+      size_t hlen = snprintf((char *)part_buf, 64, _STREAM_PART, _jpg_buf_len);
+      res = httpd_resp_send_chunk(req, (const char *)part_buf, hlen);
+    }
+    if(res == ESP_OK){
+      res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
+    }
+    if(res == ESP_OK){
+      res = httpd_resp_send_chunk(req, _STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
+    }
+    if(fb){
+      esp_camera_fb_return(fb);
+      fb = NULL;
+      _jpg_buf = NULL;
+    } else if(_jpg_buf){
+      free(_jpg_buf);
+      _jpg_buf = NULL;
+    }
+    if(res != ESP_OK){
+      break;
+    }
+    //Serial.printf("MJPG: %uB\n",(uint32_t)(_jpg_buf_len));
+  }
+  return res;
+}
+
+void startCameraServer(){
+  httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+  config.server_port = 80;
+
+  httpd_uri_t index_uri = {
+    .uri       = "/",
+    .method    = HTTP_GET,
+    .handler   = stream_handler,
+    .user_ctx  = NULL
+  };
+  
+  //Serial.printf("Starting web server on port: '%d'\n", config.server_port);
+  if (httpd_start(&stream_httpd, &config) == ESP_OK) {
+    httpd_register_uri_handler(stream_httpd, &index_uri);
+  }
+}
 
 void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
@@ -62,7 +160,7 @@ void setup() {
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
   //Serial.println();
-
+    
   if (init_wifi()) { // Connected to WiFi
     internet_connected = true;
     Serial.println("Internet connected");
@@ -112,7 +210,7 @@ void setup() {
   }
   
   //Serial.println("Starting SD Card");
-  if(!SD_MMC.begin()){
+  if(!SD_MMC.begin("/sdcard", true)){
     Serial.println("SD Card Mount Failed");
     return;
   }
@@ -122,6 +220,24 @@ void setup() {
     Serial.println("No SD Card attached");
     return;
   }
+
+  // Wi-Fi connection
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+  
+  Serial.print("Camera Stream Ready! Go to: http://");
+  Serial.print(WiFi.localIP());
+  
+  // Start streaming web server
+  startCameraServer();
+
+  pinMode(FLASH_GPIO_NUM, OUTPUT);
+  
 }
 
 bool init_wifi()
@@ -158,6 +274,7 @@ void init_time()
 
 static void save_photo()
 {
+  // ledcWrite(ledChannel, FLASH_BRIGHTNESS);
   camera_fb_t * fb = NULL;
   
   // Take Picture with Camera
@@ -167,9 +284,9 @@ static void save_photo()
     return;
   }
   // initialize EEPROM with predefined size
-  EEPROM.begin(EEPROM_SIZE);
-  pictureNumber = EEPROM.read(0) + 1;
-
+  // EEPROM.begin(EEPROM_SIZE);
+  pictureNumber = pictureNumber + 1; //EEPROM.read(0) 
+  
   // Path where new picture will be saved in SD Card
   String path = "/picture" + String(pictureNumber) +".jpg";
 
@@ -188,6 +305,7 @@ static void save_photo()
   }
   file.close();
   esp_camera_fb_return(fb); 
+  // ledcWrite(ledChannel, 0);
 }
 
 void loop()
