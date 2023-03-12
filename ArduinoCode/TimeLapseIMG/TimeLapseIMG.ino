@@ -26,10 +26,11 @@
 // #define EEPROM_SIZE 1
 
 // Edit ssid, password, capture_interval:
-const char* ssid = "Homers_House";
-const char* password = "Veigarlover420";
-int capture_interval = 1000; // milliseconds between captures
-//
+const char* ssid = "*****";
+const char* password = "*****";
+int capture_interval = 3000; // milliseconds between captures
+
+String myTimezone = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 long current_millis;
 long last_capture_millis = 0;
@@ -63,9 +64,9 @@ time_t now;
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-#define FLASH_GPIO_NUM 4
+#define FLASH_GPIO_NUM     4
 
-// #define FLASH_BRIGHTNESS 64
+#define FLASH_BRIGHTNESS  64
 
 // const int freq = 5000;
 // const int ledChannel = LEDC_CHANNEL_6;
@@ -170,6 +171,27 @@ void setup() {
     tzset();
   }
 
+  // Timezone
+  initTime(myTimezone); 
+
+  // Init Camera
+  camera_init();  
+
+  // Init sd card  
+  sd_init();
+  
+  // Wi-Fi connection
+  wifi_connect();
+
+  if (internet_connected == true) { // if no internet or time not set
+    // Start streaming web server  
+    startCameraServer();
+  }   
+
+  pinMode(FLASH_GPIO_NUM, OUTPUT);
+}
+
+void camera_init() {
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -208,36 +230,6 @@ void setup() {
     Serial.printf("Camera init failed with error 0x%x", err);
     return;
   }
-  
-  //Serial.println("Starting SD Card");
-  if(!SD_MMC.begin("/sdcard", true)){
-    Serial.println("SD Card Mount Failed");
-    return;
-  }
-  
-  uint8_t cardType = SD_MMC.cardType();
-  if(cardType == CARD_NONE){
-    Serial.println("No SD Card attached");
-    return;
-  }
-
-  // Wi-Fi connection
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.println("WiFi connected");
-  
-  Serial.print("Camera Stream Ready! Go to: http://");
-  Serial.print(WiFi.localIP());
-  
-  // Start streaming web server
-  startCameraServer();
-
-  pinMode(FLASH_GPIO_NUM, OUTPUT);
-  
 }
 
 bool init_wifi()
@@ -252,6 +244,19 @@ bool init_wifi()
     connAttempts++;
   }
   return true;
+}
+
+void wifi_connect() {
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+  
+  Serial.print("Camera Stream Ready! Go to: http://");
+  Serial.print(WiFi.localIP());
 }
 
 void init_time()
@@ -272,9 +277,46 @@ void init_time()
   }
 }
 
+void sd_init() {
+  //Serial.println("Starting SD Card");
+  if(!SD_MMC.begin("/sdcard", true)){
+    Serial.println("SD Card Mount Failed");
+    return;
+  }
+  
+  uint8_t cardType = SD_MMC.cardType();
+  if(cardType == CARD_NONE){
+    Serial.println("No SD Card attached");
+    return;
+  }
+}
+
+// Function to set timezone
+void setTimezone(String timezone){
+  Serial.printf("  Setting Timezone to %s\n",timezone.c_str());
+  setenv("TZ",timezone.c_str(),1);  //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+  tzset();
+}
+
+// Connect to NTP server and adjust timezone
+void initTime(String timezone){
+  struct tm timeinfo;
+  Serial.println("Setting up time");
+  configTime(0, 0, "pool.ntp.org");    // First connect to NTP server, with 0 TZ offset
+  if(!getLocalTime(&timeinfo)){
+    Serial.println(" Failed to obtain time");
+    return;
+  }
+  Serial.println("Got the time from NTP");
+  // Now we can set the real timezone
+  setTimezone(timezone);
+}
+
 static void save_photo()
 {
-  // ledcWrite(ledChannel, FLASH_BRIGHTNESS);
+  digitalWrite(FLASH_GPIO_NUM, HIGH);
+  delay(1500);
+  
   camera_fb_t * fb = NULL;
   
   // Take Picture with Camera
@@ -283,12 +325,32 @@ static void save_photo()
     Serial.println("Camera capture failed");
     return;
   }
+
+  delay(1000);
+  digitalWrite(FLASH_GPIO_NUM, LOW);
+  
+  
   // initialize EEPROM with predefined size
   // EEPROM.begin(EEPROM_SIZE);
   pictureNumber = pictureNumber + 1; //EEPROM.read(0) 
   
+  String pictureName = ""; 
+
+  if (internet_connected == true) { // if no internet or time not set
+    struct tm timeinfo;
+    if(!getLocalTime(&timeinfo)){
+      Serial.println("Failed to obtain time");
+      return;
+    }
+    char timeString[20];
+    strftime(timeString, sizeof(timeString), "%Y-%m-%d_%H-%M-%S", &timeinfo);
+    pictureName = String(timeString);
+  } else {
+    pictureName = String(pictureNumber);
+  }
+    
   // Path where new picture will be saved in SD Card
-  String path = "/picture" + String(pictureNumber) +".jpg";
+  String path = "/" + pictureName +".jpg";
 
   fs::FS &fs = SD_MMC; 
   Serial.printf("Picture file name: %s\n", path.c_str());
@@ -305,7 +367,6 @@ static void save_photo()
   }
   file.close();
   esp_camera_fb_return(fb); 
-  // ledcWrite(ledChannel, 0);
 }
 
 void loop()
@@ -313,6 +374,9 @@ void loop()
   current_millis = millis();
   if (current_millis - last_capture_millis > capture_interval) { // Take another picture
     last_capture_millis = millis();
+    if (pictureNumber > 3) {
+      capture_interval = 1800000; // 30 Mins
+    };
     save_photo();
   }
 }
