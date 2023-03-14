@@ -26,8 +26,8 @@
 // #define EEPROM_SIZE 1
 
 // Edit ssid, password, capture_interval:
-const char* ssid = "*****";
-const char* password = "*****";
+const char* ssid = "HUAWEI_yeasty";
+const char* password = "fd3f10f2da32";
 int capture_interval = 3000; // milliseconds between captures
 
 String myTimezone = "CET-1CEST,M3.5.0,M10.5.0/3";
@@ -314,8 +314,9 @@ void initTime(String timezone){
 
 static void save_photo()
 {
+// flash on  
   digitalWrite(FLASH_GPIO_NUM, HIGH);
-  delay(1500);
+  delay(500);
   
   camera_fb_t * fb = NULL;
   
@@ -324,11 +325,7 @@ static void save_photo()
   if(!fb) {
     Serial.println("Camera capture failed");
     return;
-  }
-
-  delay(1000);
-  digitalWrite(FLASH_GPIO_NUM, LOW);
-  
+  }  
   
   // initialize EEPROM with predefined size
   // EEPROM.begin(EEPROM_SIZE);
@@ -367,6 +364,10 @@ static void save_photo()
   }
   file.close();
   esp_camera_fb_return(fb); 
+
+// flash off
+  delay(500);
+  digitalWrite(FLASH_GPIO_NUM, LOW);
 }
 
 void loop()
@@ -374,7 +375,7 @@ void loop()
   current_millis = millis();
   if (current_millis - last_capture_millis > capture_interval) { // Take another picture
     last_capture_millis = millis();
-    if (pictureNumber > 3) {
+    if (pictureNumber > 3) { // takes 5 calibration photos
       capture_interval = 1800000; // 30 Mins
     };
     save_photo();
