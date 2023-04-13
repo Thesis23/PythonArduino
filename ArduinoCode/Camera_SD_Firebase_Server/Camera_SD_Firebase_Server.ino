@@ -8,33 +8,7 @@
 #include "Firebase_ESP_Client.h"
 #include "SD_MMC.h"
 
-// Replace with your network credentials
-const char* ssid = "COMHEM_a78a76";
-const char* password = "m2y2yd5c";
-
-// Replace with your Firebase project details
-String FIREBASE_HOST = "thesis-e256f.firebaseapp.com";
-String API_KEY = "AIzaSyDfriP7PiwSikZGi5SAaeNK3BOL3s_u9ws";
-String storageBucket = "your-firebase-project.appspot.com";
-
-// Replace with your Firebase service account credentials
-const char serviceAccount[] PROGMEM = R"rawliteral(
-  {
-    "type": "service_account",
-    "project_id": "thesis-e256f",
-    "private_key_id": "9b933ee51cd1c166c0e1d2ff9de2170c0becc4af",
-    "client_email": "firebase-adminsdk-q07bn@thesis-e256f.iam.gserviceaccount.com",
-    "client_id": "111465776282438721485",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-q07bn%40thesis-e256f.iam.gserviceaccount.com"
-  }
-)rawliteral";
-
-const char* privateKey = R"KEY(
------BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCv3PySji9IDezz\n1ppWMI49F1FI2zErVfoqUqggTRe8Av7IQlg0WwMebW5vZytTzg1ng0vihTY3VRPn\n2KHxmPUTFvGX41PHPWqQxvi87Oqgdls3JmE6KTv6ZHzAlsIfV/r3IlZa4mfo8H8Q\nY8sNfBcq6xj0TOuWmKIrTkE3z6YuAeEnXx0aQ4s/TEW3elFmdgKl6nTAHD6B4hSv\nPLMs9ZiUB22/NJTUEd8M+u9tKo4/46qhBBOKSztjfqlez3NdsVIZRw8HBABAz32g\nZfuga0DL8RGbYbvll1CIIcSGilK57kYdfT2znJUUb+Sv10asrarPcb5e8Lr/Xe36\nDC/fPt0VAgMBAAECggEABL3lTthwd0JdIVvbBs2BsNf/LK25HhKt7VAT5pBlCwjc\nTpm8apJOcxalVvpMObUL7IuEitGSSiC23RYlTyeK6oKV3IEYPu1LieJ3zfBF74eJ\n+HwskZ0HArYEPxlil6HCumusmKq+H5Ky4MYe/gEnefaBWvHBEo070RbWrCKz+/g1\nRtnq+xcapyBQ7CLVvmENJdCk532pu6XCNleeVuRVbCETFUTW2SGrOMwlqENEgwSi\n39uuQQyGCosbGcGL3pksX1IQgf8pqGMYuyqV8k714eHCzqrbc7ZKohYrNvxLSGFD\neDbVRaE4GDT6vQJONuTc37yfpWkfl1K+lOdMo653iQKBgQDghG/4aY3KuotdjLhH\ng1MA9ozmAstcsblbqOR3xmk8k91qSYxv3rlLy4CLFb/Bus/P61maY6Sft8LT0f2D\nkWEYX8FghwKBTfYXwPfo+g1ql9wtbgZqitZLqgBEo9E1xKMl4P9pz0gcUMZJEMQ9\n82b3Nj6Q9Wzi8kGUB+S+66JGVwKBgQDIhf+9uR6ehuls9adcXb0QuQ3F9v1fuHk8\nA4yJ4uf9SIdPUr55+VjLYSvOE/I/wjO97xIvmrnm2aMaU6V8a3H3PlElibsoNL52\no9JvH4DeSnaISPhD8ZgYdSpU7sBHfeWj4DZB94RqkpkNUbwgVBN9Is4qM2AoHGFJ\nNgKrzT5ccwKBgEbTQIc6tRIY2tH+DDvy/4I0RKpig0iQgAqcMsZd/uCvPI/E99pq\nhkWUws4dZEp25guPEMsVV99SltE/UxvoBpsrydLrhCzKLTG9G/eQuh7AHSLvrHJ7\nrbJcxIziqKKvj0/ptGjqjLLyADsYYO+yEu81W3NbGKhXB7zs6IoZxy0tAoGAeadS\nEHhO6z5OP5yJfLAiFBMxF/lQntH8Ozyr9ruCo1dtP+KjTLzJ8hlxygSv456eZYy1\nK8xjHHrNSRuWOnW1HprgADYfJbVaGAArmt8x/6qNXwFmHVJlQ/FRTVXLsZPfzhwo\nzryryTxHPp1n1PUtHa4QBepFXBBbtV7fH/vU6aECgYBRS+jz0/sKs5YCfhl3KYYq\nJP7OM1XCwXsUaqlW5sVFhXjo13yvyx9RMZtJQ75pmFPOS33TlVTAkCGWY2aShhdj\nCa/voaIODWB1FhO2bjNp4Yw3YNpGsIAhW7+fVVGeSIkgnZlna6v3RPYZloOnCkMx\n+vtbU3zYzEQVhsqSjxTBxg==\n-----END PRIVATE KEY-----\n
-)KEY";
+// CHECK DATA.TXT for this info!!!
 
 FirebaseData fbdo;
 FirebaseAuth auth;
